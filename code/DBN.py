@@ -29,7 +29,8 @@ class DBN(object):
     """
 
     def __init__(self, numpy_rng, theano_rng=None, n_ins=784,
-                 hidden_layers_sizes=[500, 500], n_outs=10):
+                 hidden_layers_sizes=[500, 500], n_outs=10,
+                 load_from=None, save_to=None):
         """This class is made to support a variable number of layers.
 
         :type numpy_rng: numpy.random.RandomState
@@ -49,6 +50,8 @@ class DBN(object):
 
         :type n_outs: int
         :param n_outs: dimension of the output of the network
+
+        load_from: path to a model file to load
         """
 
         self.sigmoid_layers = []
@@ -136,6 +139,13 @@ class DBN(object):
         # symbolic variable that points to the number of errors made on the
         # minibatch given by self.x and self.y
         self.errors = self.logLayer.errors(self.y)
+
+        if load_from:
+            from logistic_sgd import load_model
+            saved_params = load_model(load_from)
+            
+            for param, saved_param in zip(self.params, saved_params):
+                param.set_value(saved_param)
 
     def pretraining_functions(self, train_set_x, batch_size, k):
         '''Generates a list of functions, for performing one step of
@@ -255,9 +265,11 @@ class DBN(object):
         return train_fn, valid_score, test_score
 
 
-def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
-             pretrain_lr=0.01, k=1, training_epochs=1000,
-             dataset='../data/mnist.pkl.gz', batch_size=10):
+def test_DBN(finetune_lr=0.1, pretraining_epochs=5,
+             pretrain_lr=0.01, k=1, training_epochs=50,
+             dataset='../data/mnist.pkl.gz', batch_size=10,
+             n_ins=784, layer_sizes=[1000,1000,1000], output_classes=10,
+             load_from=None, save_to='save_file.X'):
     """
     Demonstrates how to train and test a Deep Belief Network.
 
@@ -279,6 +291,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
     :param batch_size: the size of a minibatch
     """
 
+
     datasets = load_data(dataset)
 
     train_set_x, train_set_y = datasets[0]
@@ -292,9 +305,10 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
     numpy_rng = numpy.random.RandomState(123)
     print '... building the model'
     # construct the Deep Belief Network
-    dbn = DBN(numpy_rng=numpy_rng, n_ins=28 * 28,
-              hidden_layers_sizes=[1000, 1000, 1000],
-              n_outs=10)
+    dbn = DBN(numpy_rng=numpy_rng, n_ins=n_ins,
+              hidden_layers_sizes=layer_sizes,
+              n_outs=output_classes,
+              load_from=load_from, save_to=save_to)
 
     #########################
     # PRETRAINING THE MODEL #
@@ -333,7 +347,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
                 datasets=datasets, batch_size=batch_size,
                 learning_rate=finetune_lr)
 
-    print '... finetunning the model'
+    print '... finetuning the model'
     # early-stopping parameters
     patience = 4 * n_train_batches  # look as this many examples regardless
     patience_increase = 2.    # wait this much longer when a new best is
@@ -401,7 +415,14 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
                           os.path.split(__file__)[1] +
                           ' ran for %.2fm' % ((end_time - start_time)
                                               / 60.))
+    import pdb; pdb.set_trace()
 
 
 if __name__ == '__main__':
-    test_DBN()
+    test_DBN(finetune_lr=0.1, pretraining_epochs=5,
+             pretrain_lr=0.01, k=1, training_epochs=50,
+             dataset='../data/mnist.pkl.gz', batch_size=10,
+             #dataset='randomdata.csv', batch_size=10,
+             n_ins=784, layer_sizes=[100, 50,20], output_classes=10,
+             #n_ins=4, layer_sizes=[10, 10,10], output_classes=10,
+             load_from=None, save_to=None)

@@ -143,6 +143,21 @@ class LogisticRegression(object):
         else:
             raise NotImplementedError()
 
+def load_model(model_to_load):
+    import cPickle
+    f = open(model_to_load)
+    model_params = cPickle.load(f)
+    f.close()
+    return model_params
+
+def save_model(model_params, save_to):
+    """ give it an array of theano shared variables representing model params """
+    model_params = [x.get_value() for x in model_params]
+    import cPickle
+    f = open(save_to, 'wb')
+    cPickle.dump(model_params, f)
+    f.close()
+
 
 def load_data(dataset):
     ''' Loads the dataset
@@ -151,30 +166,55 @@ def load_data(dataset):
     :param dataset: the path to the dataset (here MNIST)
     '''
 
-    #############
-    # LOAD DATA #
-    #############
+    data = []
+    import re
 
-    # Download the MNIST dataset if it is not present
-    data_dir, data_file = os.path.split(dataset)
-    if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
-        import urllib
-        origin = 'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
-        print 'Downloading data from %s' % origin
-        urllib.urlretrieve(origin, dataset)
+    if re.search('\.csv$', dataset):
+        with open(dataset) as f:
+            f.readline()
+            for line in f:
+                if line=='\n':
+                    continue
+                data.append([float(x.strip()) for x in line.strip().split(',')])
 
-    print '... loading data'
+        train_x = [data[x][:-1] for x in range(int(len(dataset)*.7))]
+        train_y = [data[x][-1] for x in range(int(len(dataset)*.7))]
 
-    # Load the dataset
-    f = gzip.open(dataset, 'rb')
-    train_set, valid_set, test_set = cPickle.load(f)
-    f.close()
-    #train_set, valid_set, test_set format: tuple(input, target)
-    #input is an numpy.ndarray of 2 dimensions (a matrix)
-    #witch row's correspond to an example. target is a
-    #numpy.ndarray of 1 dimensions (vector)) that have the same length as
-    #the number of rows in the input. It should give the target
-    #target to the example with the same index in the input.
+        valid_x = [data[x][:-1] for x in range(int(len(dataset)*.7), int(len(dataset)*.85))]
+        valid_y = [data[x][-1] for x in range(int(len(dataset)*.7), int(len(dataset)*.85))]
+
+        test_x = [data[x][:-1] for x in range(int(len(dataset)*.85), int(len(dataset)))]
+        test_y = [data[x][-1] for x in range(int(len(dataset)*.85), int(len(dataset)))]
+
+        train_set = (numpy.array(train_x), numpy.array(train_y))
+        valid_set = (numpy.array(valid_x), numpy.array(valid_y))
+        test_set = (numpy.array(test_x), numpy.array(test_y))
+
+    else:
+        #############
+        # LOAD DATA #
+        #############
+
+        # Download the MNIST dataset if it is not present
+        data_dir, data_file = os.path.split(dataset)
+        if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
+            import urllib
+            origin = 'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
+            print 'Downloading data from %s' % origin
+            urllib.urlretrieve(origin, dataset)
+
+        print '... loading data'
+
+        # Load the dataset
+        f = gzip.open(dataset, 'rb')
+        train_set, valid_set, test_set = cPickle.load(f)
+        f.close()
+        #train_set, valid_set, test_set format: tuple(input, target)
+        #input is an numpy.ndarray of 2 dimensions (a matrix)
+        #witch row's correspond to an example. target is a
+        #numpy.ndarray of 1 dimensions (vector)) that have the same length as
+        #the number of rows in the input. It should give the target
+        #target to the example with the same index in the input.
 
     def shared_dataset(data_xy, borrow=True):
         """ Function that loads the dataset into shared variables
